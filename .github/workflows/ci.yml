@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: packages/dream-core/package-lock.json
+
+      - name: Install dependencies
+        working-directory: packages/dream-core
+        run: npm ci
+
+      - name: Type check
+        working-directory: packages/dream-core
+        run: npm run typecheck
+
+      - name: Run tests
+        working-directory: packages/dream-core
+        run: npm test
+
+      - name: Build
+        working-directory: packages/dream-core
+        run: npm run build
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+          cache-dependency-path: packages/dream-core/package-lock.json
+      - run: npm ci
+        working-directory: packages/dream-core
+      - run: npm run lint
+        working-directory: packages/dream-core

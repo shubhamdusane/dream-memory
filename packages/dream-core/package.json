@@ -1,0 +1,64 @@
+{
+  "name": "@dream-memory/core",
+  "version": "0.1.0",
+  "description": "Dream Memory — open source memory consolidation for AI system. Inspired by Anthropic's internal architecture.",
+  "keywords": [
+    "ai",
+    "memory",
+    "consolidation",
+    "dream-memory",
+    "llm",
+    "openai",
+    "anthropic",
+    "memory-management",
+    "ai-memory"
+  ],
+  "homepage": "https://github.com/shubhamdusane/dream-memory",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shubhamdusane/dream-memory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shubhamdusane/dream-memory/issues"
+  },
+  "license": "MIT",
+  "author": "Shubham Dusane <sdusane4@gmail.com> (https://github.com/shubhamdusane)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --watch",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm run test",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^7.13.0",
+    "@typescript-eslint/parser": "^7.13.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.5",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
