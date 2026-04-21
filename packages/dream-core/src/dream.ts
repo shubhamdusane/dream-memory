@@ -114,6 +114,10 @@ export class Dream {
     this.currentSession = null
 
     await this.store.logSession(session.id)
+    // Queue message content for the next dream pass.
+    // Fix for silent data loss bug where endSession() counted the session
+    // but never queued its messages for consolidation.
+    this._pendingSessions.push(session)
     return session.id
   }
 
@@ -181,12 +185,27 @@ export class Dream {
       }
     }
 
+    // Snapshot pending sessions but DO NOT clear yet.
+    // If the consolidator throws (network failure, rate limit, etc.),
+    // we must keep the sessions so the next dream() can retry them.
     const sessions = [...this._pendingSessions]
-    this._pendingSessions = []
 
-    const result = await this.consolidator.run(sessions)
+    let result: DreamResult
+    try {
+      result = await this.consolidator.run(sessions)
+    } catch (err) {
+      // Propagate — sessions remain in _pendingSessions for retry.
+      throw err
+    }
 
     if (result.success) {
+      // Only drain pending after successful consolidation.
+      // Remove exactly the sessions we snapshot-ed (preserves any new
+      // sessions that arrived mid-consolidation).
+      const consumed = new Set(sessions.map((s) => s.id))
+      this._pendingSessions = this._pendingSessions.filter(
+        (s) => !consumed.has(s.id),
+      )
       await this.scheduler.recordConsolidation()
     }
 
@@ -359,8 +378,8 @@ export class Dream {
    * })
    * ```
    */
-  onEvent(handler: (event: DreamEvent) => void): void {
-    this.consolidator.onEvent(handler)
+  onEvent(handler: (event: DreamEvent) => void): () => void {
+    return this.consolidator.onEvent(handler)
   }
 
   // ─── Storage Access ───────────────────────────────────────────────────────
@@ -411,7 +430,9 @@ export const createDream = {
   }): Dream {
     return new Dream({
       llm: {
-        model: opts.model ?? 'claude-3-5-haiku-20241022',
+        // Default to Claude Sonnet 4 (Apr 2026 GA) for consolidation quality,
+        // Haiku 3.5 for cheap scoring pass. Override via opts.model.
+        model: opts.model ?? 'claude-sonnet-4-20250514',
         provider: 'anthropic',
         apiKey: opts.apiKey,
         scoringModel: 'claude-3-5-haiku-20241022',

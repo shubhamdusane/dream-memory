@@ -52,7 +52,67 @@ export class FileSystemStore implements MemoryStoreAdapter {
   }
 
   private memoryPath(id: string): string {
+    // Defense-in-depth against path traversal. The library itself always
+    // generates UUID v4 ids, but consumers may pass user-supplied strings
+    // into forget()/getMemory(). Reject anything that isn't a valid id
+    // shape before letting path.join resolve ../ escapes.
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(id)) {
+      throw new Error(
+        `Invalid memory id: "${id}". Expected alphanumeric, hyphen, underscore only.`,
+      )
+    }
     return join(this.memoriesDir, `${id}.md`)
+  }
+
+  /**
+   * Parse a single frontmatter block into a key→value map.
+   *
+   * Handles:
+   * - Values containing colons (URLs, ISO timestamps, "Label: text")
+   * - Single/double quoted values
+   * - YAML-style block scalars are NOT supported — values are single-line.
+   *
+   * The hand-rolled parser in prior versions split on every `:` and
+   * truncated any value after the first colon. This version splits only
+   * on the FIRST colon and preserves everything after it verbatim.
+   */
+  private parseFrontmatter(block: string): Record<string, string> {
+    const out: Record<string, string> = {}
+    for (const rawLine of block.split('\n')) {
+      const line = rawLine.trimEnd()
+      if (!line || line.startsWith('#')) continue
+      const colonIdx = line.indexOf(':')
+      if (colonIdx === -1) continue
+      const key = line.slice(0, colonIdx).trim()
+      if (!key) continue
+      let value = line.slice(colonIdx + 1).trim()
+      // Strip matching quotes
+      if (
+        (value.startsWith('"') && value.endsWith('"') && value.length >= 2) ||
+        (value.startsWith("'") && value.endsWith("'") && value.length >= 2)
+      ) {
+        value = value.slice(1, -1)
+      }
+      out[key] = value
+    }
+    return out
+  }
+
+  /** Escape a value for single-line frontmatter output. */
+  private serializeFrontmatterValue(value: string): string {
+    // Quote if the value contains a colon, starts with a reserved char,
+    // or contains a newline (which we'll also collapse).
+    const collapsed = value.replace(/\r?\n/g, ' ')
+    if (
+      collapsed.includes(':') ||
+      collapsed.startsWith('"') ||
+      collapsed.startsWith("'") ||
+      collapsed.startsWith('#') ||
+      collapsed.startsWith('-')
+    ) {
+      return `"${collapsed.replace(/"/g, '\\"')}"`
+    }
+    return collapsed
   }
 
   private async ensureDirectories(): Promise<void> {
@@ -62,15 +122,16 @@ export class FileSystemStore implements MemoryStoreAdapter {
   // ─── Serialization ────────────────────────────────────────────────────────
 
   private serializeMemory(memory: Memory): string {
+    const sv = this.serializeFrontmatterValue.bind(this)
     const frontmatter = [
       '---',
-      `id: ${memory.id}`,
-      `name: ${memory.name}`,
-      `description: ${memory.description}`,
-      `type: ${memory.type}`,
+      `id: ${sv(memory.id)}`,
+      `name: ${sv(memory.name)}`,
+      `description: ${sv(memory.description)}`,
+      `type: ${sv(memory.type)}`,
       `createdAt: ${memory.createdAt}`,
       `updatedAt: ${memory.updatedAt}`,
-      memory.source ? `source: ${memory.source}` : null,
+      memory.source ? `source: ${sv(memory.source)}` : null,
       memory.metadata ? `metadata: ${JSON.stringify(memory.metadata)}` : null,
       '---',
       '',
@@ -88,15 +149,7 @@ export class FileSystemStore implements MemoryStoreAdapter {
       if (!fmMatch) return null
 
       const [, frontmatterStr, content] = fmMatch
-      const frontmatter: Record<string, string> = {}
-
-      for (const line of frontmatterStr.split('\n')) {
-        const colonIdx = line.indexOf(':')
-        if (colonIdx === -1) continue
-        const key = line.slice(0, colonIdx).trim()
-        const value = line.slice(colonIdx + 1).trim()
-        frontmatter[key] = value
-      }
+      const frontmatter = this.parseFrontmatter(frontmatterStr)
 
       if (!frontmatter.id || !frontmatter.name || !frontmatter.type) {
         return null
@@ -173,14 +226,7 @@ export class FileSystemStore implements MemoryStoreAdapter {
               updatedAt: stat.mtimeMs,
             }
 
-          const frontmatter: Record<string, string> = {}
-          for (const line of fmMatch[1].split('\n')) {
-            const colonIdx = line.indexOf(':')
-            if (colonIdx === -1) continue
-            frontmatter[line.slice(0, colonIdx).trim()] = line
-              .slice(colonIdx + 1)
-              .trim()
-          }
+          const frontmatter = this.parseFrontmatter(fmMatch[1])
 
           return {
             id: frontmatter.id ?? file.replace('.md', ''),

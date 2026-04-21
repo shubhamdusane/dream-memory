@@ -8,8 +8,12 @@
  * - Dream public API
  */
 
-import { jest, describe, it, expect, beforeEach } from '@jest/globals'
-import { Dream, createDream, InMemoryStore } from '../src/index.js'
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
+import { promises as fs } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import { randomUUID } from 'crypto'
+import { Dream, createDream, InMemoryStore, FileSystemStore } from '../src/index.js'
 import type { Memory, SessionMessage } from '../src/index.js'
 import { Scheduler } from '../src/scheduler/scheduler.js'
 import { LLMClient } from '../src/utils/llm.js'
@@ -347,6 +351,88 @@ describe('Dream', () => {
     const result = await conservativeDream.dream(false)
     expect(result.success).toBe(true)
     expect(result.summary).toContain('skipped')
+  })
+})
+
+// ─── Regression: endSession → dream → listMemories ───────────────────────────
+
+describe('Regression: endSession queues messages for consolidation', () => {
+  let dream: Dream
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    dream = new Dream({
+      llm: { model: 'gpt-4o-mini', provider: 'openai', apiKey: 'test-key' },
+      store: { type: 'memory' },
+      schedule: { minHours: 0, minSessions: 0 },
+    })
+  })
+
+  it('creates memories when using startSession/addMessage/endSession flow', async () => {
+    dream.startSession()
+    dream.addMessage({ role: 'user', content: 'I prefer TypeScript over JavaScript' })
+    dream.addMessage({ role: 'assistant', content: 'Noted, I will use TypeScript.' })
+    await dream.endSession()
+
+    const result = await dream.dream(true)
+    expect(result.success).toBe(true)
+    expect(result.memoriesCreated).toBe(1)
+
+    const memories = await dream.listMemories()
+    expect(memories).toHaveLength(1)
+    expect(memories[0].name).toContain('TypeScript')
+  })
+})
+
+// ─── Regression: FileSystemStore frontmatter with colons ──────────────────────
+
+describe('Regression: FileSystemStore handles colons in frontmatter values', () => {
+  let tmp: string
+  let store: FileSystemStore
+
+  beforeEach(async () => {
+    tmp = join(tmpdir(), `dream-test-${randomUUID()}`)
+    await fs.mkdir(tmp, { recursive: true })
+    store = new FileSystemStore(tmp)
+  })
+
+  afterEach(async () => {
+    await fs.rm(tmp, { recursive: true, force: true })
+  })
+
+  it('round-trips a memory whose name contains a colon (URL)', async () => {
+    const id = randomUUID()
+    const memory: Memory = {
+      id,
+      name: 'API reference: https://api.example.com/v1',
+      description: 'Payment API: v2 docs',
+      content: 'Use /payments endpoint. Auth: Bearer token.',
+      type: 'reference',
+      createdAt: 1713657600000,
+      updatedAt: 1713657600000,
+    }
+    await store.set(memory)
+    const loaded = await store.get(id)
+    expect(loaded).not.toBeNull()
+    expect(loaded!.name).toBe('API reference: https://api.example.com/v1')
+    expect(loaded!.description).toBe('Payment API: v2 docs')
+  })
+
+  it('rejects invalid memory ids (path traversal)', async () => {
+    // Valid lookup with bogus id should throw, not resolve ../
+    await expect(store.get('../../../etc/passwd')).resolves.toBeNull()
+    // Write path must throw before hitting the filesystem
+    await expect(
+      store.set({
+        id: '../../escape',
+        name: 'bad',
+        description: '',
+        content: '',
+        type: 'user',
+        createdAt: 0,
+        updatedAt: 0,
+      }),
+    ).rejects.toThrow(/Invalid memory id/)
   })
 })
 

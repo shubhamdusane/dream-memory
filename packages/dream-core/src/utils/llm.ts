@@ -92,17 +92,51 @@ export class LLMClient {
       this.config.provider === 'anthropic' ||
       baseURL.includes('anthropic.com')
 
-    if (isAnthropic) {
-      return this.callAnthropicAPI(messages, model, maxTokens, baseURL, apiKey)
-    }
+    const fn = isAnthropic
+      ? () => this.callAnthropicAPI(messages, model, maxTokens, baseURL, apiKey)
+      : () =>
+          this.callOpenAICompatibleAPI(
+            messages,
+            model,
+            maxTokens,
+            baseURL,
+            apiKey,
+          )
 
-    return this.callOpenAICompatibleAPI(
-      messages,
-      model,
-      maxTokens,
-      baseURL,
-      apiKey,
-    )
+    return this.withRetry(fn)
+  }
+
+  /**
+   * Retry wrapper with exponential backoff + jitter.
+   *
+   * Retries on: network errors, 408 timeout, 429 rate-limit,
+   * 500/502/503/504 upstream errors. Does NOT retry on: 400/401/403/404
+   * (these are deterministic failures — retry will not help).
+   *
+   * Default: 3 retries, 500ms base delay, caps at ~8s total wait.
+   */
+  private async withRetry<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+  ): Promise<T> {
+    let lastErr: unknown
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn()
+      } catch (err) {
+        lastErr = err
+        const msg = err instanceof Error ? err.message : String(err)
+        const retryableStatus = /\b(408|429|500|502|503|504)\b/.test(msg)
+        const networkErr =
+          /(ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed)/i.test(msg)
+        const retryable = retryableStatus || networkErr
+        if (!retryable || attempt === maxRetries) break
+        const base = 500 * Math.pow(2, attempt)
+        const jitter = Math.random() * 250
+        await new Promise((r) => setTimeout(r, base + jitter))
+      }
+    }
+    throw lastErr
   }
 
   private async callOpenAICompatibleAPI(

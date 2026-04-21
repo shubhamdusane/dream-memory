@@ -53,7 +53,9 @@ export class Consolidator {
   private readonly store: MemoryStoreAdapter
   private readonly config: ConsolidationConfig
   private readonly debug: boolean
-  private eventHandler?: (event: DreamEvent) => void
+  // Additive handlers — multiple consumers can subscribe. Prior versions
+  // stored a single handler that got overwritten on every subscribe.
+  private eventHandlers: Array<(event: DreamEvent) => void> = []
 
   constructor(opts: {
     llm: LLMClient
@@ -67,12 +69,29 @@ export class Consolidator {
     this.debug = opts.debug ?? false
   }
 
-  onEvent(handler: (event: DreamEvent) => void): void {
-    this.eventHandler = handler
+  /**
+   * Subscribe to dream events. Returns an unsubscribe function.
+   * Multiple subscribers are supported — they are invoked in registration
+   * order. A handler that throws is caught and logged (in debug mode) so
+   * one misbehaving observer cannot break the consolidation pass.
+   */
+  onEvent(handler: (event: DreamEvent) => void): () => void {
+    this.eventHandlers.push(handler)
+    return () => {
+      this.eventHandlers = this.eventHandlers.filter((h) => h !== handler)
+    }
   }
 
   private emit(event: DreamEvent): void {
-    this.eventHandler?.(event)
+    for (const h of this.eventHandlers) {
+      try {
+        h(event)
+      } catch (err) {
+        if (this.debug) {
+          console.error(`[dream] event handler threw`, err)
+        }
+      }
+    }
     if (this.debug) {
       console.log(`[dream] ${event.type}`, event)
     }
