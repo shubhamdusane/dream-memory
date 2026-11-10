@@ -160,14 +160,14 @@ Full types in `src/types/index.ts`.
 | [`docs/SECURITY.md`](./docs/SECURITY.md) | Threat model + mitigations |
 | [`docs/USAGE_GUIDE.md`](./docs/USAGE_GUIDE.md) | Three end-to-end scenarios |
 | [`docs/FAQ.md`](./docs/FAQ.md) | Honest answers to common questions |
-| [`AUDIT_REPORT.md`](./AUDIT_REPORT.md) | v0.1.2 audit findings + fixes |
-| [`benchmarks/results.md`](./benchmarks/results.md) | Real numbers, not hand-waving |
+| [`AUDIT_REPORT.md`](./AUDIT_REPORT.md) | Code-review findings + fixes (reviewer not named; not a certified audit) |
+| [`benchmarks/results.md`](./benchmarks/results.md) | Micro-benchmark output from one Windows machine (non-LLM paths only) |
 
 ---
 
 ## Status
 
-**v0.1.2 (current)** — hardened after external audit. Fixes for three
+**v0.1.2 (current)** — hardened after a code review (reviewer not named; not a certified third-party audit; post-fix rating is self-assessed). Fixes for three
 critical bugs (endSession data loss, frontmatter parser, session-clear
 race), two security findings (prompt injection, path traversal), LLM
 retry, multi-handler events, refreshed default models. Full details in

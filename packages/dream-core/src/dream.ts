@@ -190,13 +190,9 @@ export class Dream {
     // we must keep the sessions so the next dream() can retry them.
     const sessions = [...this._pendingSessions]
 
-    let result: DreamResult
-    try {
-      result = await this.consolidator.run(sessions)
-    } catch (err) {
-      // Propagate — sessions remain in _pendingSessions for retry.
-      throw err
-    }
+    // If run() throws, the error propagates and sessions remain in
+    // _pendingSessions for retry.
+    const result: DreamResult = await this.consolidator.run(sessions)
 
     if (result.success) {
       // Only drain pending after successful consolidation.

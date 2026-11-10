@@ -265,4 +265,4 @@ for confirmed issues.
 
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) §8 — quick summary.
 - [`DATA_FLOW.md`](./DATA_FLOW.md) — where untrusted data crosses each path.
-- [`../AUDIT_REPORT.md`](../AUDIT_REPORT.md) — external audit findings and fixes.
+- [`../AUDIT_REPORT.md`](../AUDIT_REPORT.md) — code-review findings and fixes (reviewer not named; not a certified audit).

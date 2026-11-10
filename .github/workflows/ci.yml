@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, main, develop]
   pull_request:
-    branches: [main]
+    branches: [master, main]
 
 jobs:
   test:
@@ -24,11 +24,9 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: packages/dream-core/package-lock.json
 
       - name: Install dependencies
-        working-directory: packages/dream-core
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Type check
         working-directory: packages/dream-core
@@ -51,8 +49,6 @@ jobs:
         with:
           node-version: 20.x
           cache: 'npm'
-          cache-dependency-path: packages/dream-core/package-lock.json
-      - run: npm ci
-        working-directory: packages/dream-core
+      - run: npm ci --ignore-scripts
       - run: npm run lint
         working-directory: packages/dream-core

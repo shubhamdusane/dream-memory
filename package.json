@@ -1,11 +1,14 @@
 {
   "name": "dream-memory-monorepo",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "build": "npm run build --workspace=packages/dream-core",
     "test": "npm run test --workspace=packages/dream-core",
-    "dev": "npm run dev --workspace=packages/dream-core"
+    "dev": "npm run dev --workspace=packages/dream-core",
+    "bench": "npm run build && node --experimental-strip-types benchmarks/bench.ts"
   },
   "engines": {
     "node": ">=18.0.0"

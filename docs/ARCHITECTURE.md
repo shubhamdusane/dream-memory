@@ -257,18 +257,9 @@ new Dream({
 
 ## 7. Performance Characteristics
 
-Measured on an M1 Mac, Node 20, `gpt-4o-mini`, `.dream/` on local APFS.
+LLM-bound operations (`dream()`, LLM-scored `recall()`) are dominated by provider latency, which this repo has not benchmarked. Earlier drafts of this section quoted figures for those operations; they were not backed by a reproducible run and have been removed.
 
-| Operation | Shape | Wall time |
-|---|---|---|
-| `listHeaders()` | 50 memories | 30–80 ms |
-| `listHeaders()` | 200 memories | 120–200 ms |
-| `dream()` | 10 sessions, 50 memories | 3–6 s (LLM-bound) |
-| `recall()` | 50-memory store | 500–900 ms (LLM-bound) |
-| `remember()` | single write | 20–40 ms |
-
-Bottlenecks: LLM latency ≫ disk I/O. The library does **not** add
-meaningful overhead on top of the model call.
+The only measured numbers are the non-LLM filesystem micro-benchmarks in [`benchmarks/results.md`](../benchmarks/results.md), with the machine they were run on. They vary a lot by OS, filesystem and antivirus; run `npm run bench` on your own hardware.
 
 ---
 
@@ -297,5 +288,5 @@ See [`SECURITY.md`](./SECURITY.md). Summary:
 - [`SECURITY.md`](./SECURITY.md) — threat model + mitigations
 - [`USAGE_GUIDE.md`](./USAGE_GUIDE.md) — 3 concrete scenarios, end to end
 - [`FAQ.md`](./FAQ.md) — answers to common critiques
-- [`../AUDIT_REPORT.md`](../AUDIT_REPORT.md) — v0.1.2 audit findings
+- [`../AUDIT_REPORT.md`](../AUDIT_REPORT.md) — v0.1.2 code-review findings
 - [`../benchmarks/results.md`](../benchmarks/results.md) — real numbers

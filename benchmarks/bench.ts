@@ -8,14 +8,12 @@
  *   - logSession()         : append to .sessions.json
  *   - frontmatter parse    : serialize + deserialize round-trip
  *
- * The LLM-bound paths (dream, recall-with-network) aren't benched here
- * because they're dominated by provider latency — see results.md §3 for
- * measured wall-times against real endpoints.
+ * LLM-bound paths (dream, recall-with-network) are NOT benchmarked here.
+ * Run (Node >= 22.6, from the repo root):
+ *   npm ci --ignore-scripts
+ *   npm run bench
  *
- * Run:
- *   cd packages/dream-core
- *   npm run build
- *   node --experimental-vm-modules ../../benchmarks/bench.js
+ * Paste the output, plus your machine details, into benchmarks/results.md.
  */
 
 import { randomUUID } from 'crypto'
@@ -57,7 +55,11 @@ function fmt(s: Stats): string {
   return `iters=${String(s.iters).padStart(5)}  mean=${f(s.mean)}ms  p50=${f(s.p50)}ms  p95=${f(s.p95)}ms  p99=${f(s.p99)}ms`
 }
 
-async function bench(name: string, iters: number, fn: () => Promise<void>): Promise<Stats> {
+const SCALE = Number(process.env.BENCH_SCALE ?? '1')
+
+async function bench(name: string, itersFull: number, fn: () => Promise<void>): Promise<Stats> {
+  // BENCH_SCALE (e.g. 0.2) shrinks iteration counts on slow filesystems
+  const iters = Math.max(20, Math.round(itersFull * SCALE))
   // Warm-up — exclude from stats
   for (let i = 0; i < Math.min(10, iters); i++) await fn()
 
@@ -90,11 +92,11 @@ function makeMemory(overrides: Partial<Memory> = {}): Memory {
 
 async function main() {
   const tmp = mkdtempSync(join(tmpdir(), 'dream-bench-'))
-  const store = new FileSystemStore({ path: tmp })
+  const store = new FileSystemStore(tmp)
 
   console.log('─'.repeat(90))
   console.log(`Dream Memory — non-LLM micro-benchmarks`)
-  console.log(`Node: ${process.version}  Platform: ${process.platform}  CWD: ${tmp}`)
+  console.log(`Node: ${process.version}  Platform: ${process.platform}  BENCH_SCALE=${SCALE}`)
   console.log('─'.repeat(90))
 
   // ── 1. remember() — single write ───────────────────────────────────────────

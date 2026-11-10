@@ -1,10 +1,12 @@
-# Audit Report — @dream-memory/core v0.1.2
+# Code Review Report — @dream-memory/core v0.1.2
 
-> External audit conducted against v0.1.1. This document lists every
+> **Provenance note:** this is a code-review report, not a certified third-party security audit. The reviewer is not named in this repository and no external audit firm or engagement is documented. The v0.1.1 rating below comes from that undocumented review; the v0.1.2 rating is the maintainer's own self-assessment. Do not cite this as an "external audit".
+>
+> Review conducted against v0.1.1. This document lists every
 > finding, the resolution shipped in v0.1.2, and the regression test
 > that prevents regression.
 
-**Audit rating (v0.1.1):** 6/10 overall, 3/10 production-ready.
+**Review rating (v0.1.1, reviewer not named):** 6/10 overall, 3/10 production-ready.
 **Post-fix rating (v0.1.2, self-assessed):** 8/10 overall, 7/10 production-ready for single-process trusted-input deployments. Remaining gaps are architectural (cross-process locking, PII scrubbing) and tracked in [SECURITY.md §3](./docs/SECURITY.md#3-what-the-library-does-not-do).
 
 ---
@@ -22,7 +24,7 @@
 | Medium | Single-handler event system (second subscribe overwrites first) | ✅ Fixed |
 | Medium | Default Anthropic model stuck on 3.5-era identifier | ✅ Fixed |
 | Low | No architecture/usage/security docs | ✅ Fixed (docs/ suite) |
-| Low | No audit report | ✅ Fixed (this document) |
+| Low | No review report | ✅ Fixed (this document) |
 
 All fixes backed by regression tests. 28/28 tests green, `tsc --noEmit`
 exit 0, `npm run build` exit 0.
@@ -318,7 +320,7 @@ New `docs/` suite:
 
 ---
 
-## L-2 — No audit report
+## L-2 — No review report
 
 ### Fix
 
@@ -331,11 +333,11 @@ This document.
 Run these from the repo root:
 
 ```bash
+npm ci --ignore-scripts    # repo root (npm workspaces; lockfile is at the root)
 cd packages/dream-core
-npm ci
-npx tsc --noEmit           # exit 0
-npm run build              # exit 0
-npm test                   # 28/28 passing, ~24s wall
+npm run typecheck          # tsc --noEmit
+npm run build
+npm test
 ```
 
 Published: `npm publish --access public` from `packages/dream-core`,
@@ -358,6 +360,6 @@ See [ARCHITECTURE.md §9](./docs/ARCHITECTURE.md#9-stability--versioning).
 
 ## Thanks
 
-To the auditor who wrote the Principal-Staff-Engineer review and
+To the reviewer who wrote the Principal-Staff-Engineer review and
 didn't sugarcoat anything. This version is measurably better because
 of it.
